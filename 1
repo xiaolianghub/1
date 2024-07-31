@@ -1,0 +1,116 @@
+#!/bin/bash
+
+# Define variables
+WP_VERSION="5.7.2"
+PHP_VERSION="7.4"
+MYSQL_VERSION="8.0"
+APACHE_VERSION="2.4"
+ALIST_VERSION="1.0.0"
+QL_VERSION="2.10.0"
+
+# Function to install WordPress
+install_wordpress() {
+  # Install dependencies
+  sudo apt update
+  sudo apt install -y apache2 php${PHP_VERSION}-fpm mysql-server
+
+  # Configure MySQL
+  sudo mysql -uroot -e "CREATE DATABASE wordpress; GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpressuser'@'localhost' IDENTIFIED BY 'wordpresspassword'; FLUSH PRIVILEGES;"
+
+  # Download and extract WordPress
+  wget https://wordpress.org/latest.tar.gz
+  tar -xvf latest.tar.gz
+  mv wordpress /var/www/
+
+  # Configure WordPress
+  sudo chown -R www-data:www-data /var/www/wordpress
+  sudo chmod -R 755 /var/www/wordpress
+  sudo cp /var/www/wordpress/wp-config-sample.php /var/www/wordpress/wp-config.php
+  sudo sed -i "s/database_name_here/wordpress/" /var/www/wordpress/wp-config.php
+  sudo sed -i "s/username_here/wordpressuser/" /var/www/wordpress/wp-config.php
+  sudo sed -i "s/password_here/wordpresspassword/" /var/www/wordpress/wp-config.php
+  sudo sed -i "s/localhost/127.0.0.1/" /var/www/wordpress/wp-config.php
+
+  # Configure Apache
+  sudo a2enmod rewrite
+  sudo service apache2 restart
+
+  # Install WordPress
+  sudo -u www-data wp core install --url=http://localhost --title=My\ WordPress\ Site --admin_user=admin --admin_password=admin --admin_email=admin@example.com
+
+  # Clean up
+  rm -rf latest.tar.gz
+}
+
+# Function to install alist
+install_alist() {
+  # Install dependencies
+  sudo apt update
+  sudo apt install -y nginx
+
+  # Download and extract alist
+  wget https://github.com/alist-org/alist/releases/download/${ALIST_VERSION}/alist-${ALIST_VERSION}-linux-amd64.tar.gz
+  tar -xvf alist-${ALIST_VERSION}-linux-amd64.tar.gz
+  mv alist /usr/local/bin/
+
+  # Configure alist
+  sudo chmod +x /usr/local/bin/alist
+  sudo mkdir /etc/alist
+  sudo cp /usr/local/bin/alist/config.json /etc/alist/
+
+  # Start alist
+  sudo /usr/local/bin/alist
+}
+
+# Function to install QingLong Panel
+install_ql() {
+  # Install dependencies
+  sudo apt update
+  sudo apt install -y docker.io
+
+  # Pull QingLong Panel image
+  sudo docker pull whyour/qinglong:latest
+
+  # Run QingLong Panel container
+  sudo docker run -d --name qinglong -p 5700:5700 -v /ql:/ql whyour/qinglong:latest
+
+  # Configure QingLong Panel
+  sudo docker exec -it qinglong ql config set dbhost 127.0.0.1
+  sudo docker exec -it qinglong ql config set dbuser qinglong
+  sudo docker exec -it qinglong ql config set dbpass qinglong
+  sudo docker exec -it qinglong ql config set dbname qinglong
+
+  # Start QingLong Panel
+  sudo docker start qinglong
+}
+
+# Main menu
+echo -e "\033[34m小亮专属脚本\033[0m"
+while true; do
+  echo "Select an option:"
+  echo "1. Install WordPress"
+  echo "2. Install alist"
+  echo "3. Install QingLong Panel"
+  echo "4. Exit"
+
+  read -p "Enter your choice: " choice
+
+  case $choice in
+    1)
+      install_wordpress
+      ;;
+    2)
+      install_alist
+      ;;
+    3)
+      install_ql
+      ;;
+    4)
+      echo "Exiting script..."
+      break
+      ;;
+    *)
+      echo "Invalid choice. Please try again."
+      ;;
+  esac
+done
